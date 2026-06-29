@@ -400,9 +400,7 @@ export function GitHubIssuePickerDialog({
           const preferred = `issue-${issue.number}-${generateBranchSlug()}`;
           const created = await createWorktreeSessionForNewBranch(
             projectDirectory,
-            preferred,
-            undefined,
-            { returnAfterDirectoryCreated: true }
+            preferred
           );
           if (!created?.id) {
             throw new Error('Failed to create worktree session');

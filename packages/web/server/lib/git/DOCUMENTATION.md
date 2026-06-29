@@ -120,7 +120,7 @@ The following functions are internal helpers used by exported functions:
 - `branch`: Local branch name.
 - `path`: Absolute path to worktree directory.
 - `directoryCreated`: Present when create returned after the target directory exists while background Git/bootstrap work continues.
-- `bootstrapStatus`: Background setup status, with `pending`, `ready`, or `failed`.
+- `bootstrapStatus`: Background setup status with `status` (`pending`, `ready`, or `failed`) plus optional `phase` (`attaching`, `populating`, `setup`, or `ready`). `phase: setup` means Git has attached and populated the filesystem while setup scripts/upstream work may still be running; `status: ready`/`phase: ready` means all background bootstrap work is complete.
 - Fast-create background failures remove OpenCode sandbox metadata for directories that never became Git worktrees, and remove the pre-created directory only if it is still empty. User-created files are never recursively deleted by this cleanup.
 
 ### Log Response

@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const bootstrapStatusCalls: string[] = [];
-let bootstrapStatusResult: { status: 'pending' | 'ready' | 'failed'; error: string | null; updatedAt: number } = {
+let bootstrapStatusResult: {
+  status: 'pending' | 'ready' | 'failed';
+  phase?: 'attaching' | 'populating' | 'setup' | 'ready';
+  error: string | null;
+  updatedAt: number;
+} = {
   status: 'ready',
   error: null,
   updatedAt: 1,
@@ -49,7 +54,10 @@ const {
   markWorktreeBootstrapPending,
   startWorktreeBootstrapWatcher,
   waitForWorktreeBootstrap,
-} = await import('./worktreeBootstrap');
+  waitForWorktreeFilesystemReady,
+} = await import(
+  `./worktreeBootstrap?test=${Date.now()}-${Math.random()}`
+) as typeof import('./worktreeBootstrap');
 
 const waitFor = async (predicate: () => boolean): Promise<void> => {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -80,6 +88,15 @@ describe('worktreeBootstrap.waitForWorktreeBootstrap', () => {
     await waitForWorktreeBootstrap('/repo-wt');
 
     expect(bootstrapStatusCalls).toEqual(['/repo-wt']);
+  });
+
+  test('filesystem wait resolves once checkout is complete and setup scripts are pending', async () => {
+    bootstrapStatusResult = { status: 'pending', phase: 'setup', error: null, updatedAt: 2 };
+
+    await waitForWorktreeFilesystemReady('/repo-wt');
+
+    expect(bootstrapStatusCalls).toEqual(['/repo-wt']);
+    expect(getWorktreeBootstrapState('/repo-wt')?.phase).toBe('setup');
   });
 
   test('background watcher polls pending worktrees without blocking', async () => {

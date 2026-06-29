@@ -234,7 +234,7 @@ export const useMultiRunStore = create<MultiRunStore>()(
                   worktreeName: preferredName,
                   startRef: params.worktreeBaseBranch || 'HEAD',
                   setupCommands: commandsToRun,
-                  returnAfterDirectoryCreated: true,
+                  returnAfterDirectoryCreated: false,
                 }, {
                   resolvedRootTrackingRemote: rootTrackingRemote,
                 });

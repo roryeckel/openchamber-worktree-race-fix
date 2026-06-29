@@ -18,6 +18,7 @@ import type {
   GeneratedCommitMessage,
   GeneratedPullRequestDescription,
   GitWorktreeInfo,
+  GitWorktreeBootstrapStatus,
   CreateGitWorktreePayload,
   GitWorktreeValidationResult,
   GitWorktreeCreateResult,
@@ -193,8 +194,8 @@ export const createVSCodeGitAPI = (): GitAPI => ({
     });
   },
 
-  getGitWorktreeBootstrapStatus: async (directory: string): Promise<{ status: 'pending' | 'ready' | 'failed'; error: string | null; updatedAt: number }> => {
-    return sendBridgeMessage<{ status: 'pending' | 'ready' | 'failed'; error: string | null; updatedAt: number }>('api:git/worktrees/bootstrap-status', {
+  getGitWorktreeBootstrapStatus: async (directory: string): Promise<GitWorktreeBootstrapStatus> => {
+    return sendBridgeMessage<GitWorktreeBootstrapStatus>('api:git/worktrees/bootstrap-status', {
       directory,
     });
   },
@@ -514,8 +515,8 @@ export const createVSCodeGitAPI = (): GitAPI => ({
         ...(payload || {}),
       });
     },
-    bootstrapStatus: async (directory: string): Promise<{ status: 'pending' | 'ready' | 'failed'; error: string | null; updatedAt: number }> => {
-      return sendBridgeMessage<{ status: 'pending' | 'ready' | 'failed'; error: string | null; updatedAt: number }>('api:git/worktrees/bootstrap-status', {
+    bootstrapStatus: async (directory: string): Promise<GitWorktreeBootstrapStatus> => {
+      return sendBridgeMessage<GitWorktreeBootstrapStatus>('api:git/worktrees/bootstrap-status', {
         directory,
       });
     },

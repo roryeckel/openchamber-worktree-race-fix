@@ -321,6 +321,41 @@ describe('worktree root resolution', () => {
 // ---------------------------------------------------------------------------
 
 describe('createWorktree', () => {
+  it('populates repository files before returning from normal create', async () => {
+    if (!canRunGit()) return;
+
+    const previousXdgDataHome = process.env.XDG_DATA_HOME;
+    const dataHome = createTempDir();
+    process.env.XDG_DATA_HOME = dataHome;
+
+    try {
+      const repo = createTempDir();
+      runGit(repo, ['init', '-b', 'main']);
+      runGit(repo, ['config', 'user.email', 'test@example.com']);
+      runGit(repo, ['config', 'user.name', 'Test User']);
+      fs.writeFileSync(path.join(repo, 'README.md'), '# Test\n');
+      fs.writeFileSync(path.join(repo, 'opencode.json'), '{"mcp":{}}\n');
+      runGit(repo, ['add', 'README.md', 'opencode.json']);
+      runGit(repo, ['commit', '-m', 'Initial commit']);
+
+      const result = await createWorktree(repo, {
+        mode: 'new',
+        branchName: 'feature/config',
+        worktreeName: 'feature-config',
+      });
+
+      expect(result.bootstrapStatus?.phase).toBe('setup');
+      expect(fs.readFileSync(path.join(result.path, 'opencode.json'), 'utf8').replace(/\r\n/g, '\n')).toBe('{"mcp":{}}\n');
+      expect(fs.readFileSync(path.join(result.path, 'README.md'), 'utf8').replace(/\r\n/g, '\n')).toBe('# Test\n');
+    } finally {
+      if (previousXdgDataHome === undefined) {
+        delete process.env.XDG_DATA_HOME;
+      } else {
+        process.env.XDG_DATA_HOME = previousXdgDataHome;
+      }
+    }
+  });
+
   it('preflights fast create branch-in-use failures before creating the candidate directory', async () => {
     if (!canRunGit()) return;
 
@@ -353,6 +388,56 @@ describe('createWorktree', () => {
 
       const candidateDirectory = path.join(dataHome, 'opencode', 'worktree', projectID, 'feature-in-use');
       expect(fs.existsSync(candidateDirectory)).toBe(false);
+    } finally {
+      if (previousXdgDataHome === undefined) {
+        delete process.env.XDG_DATA_HOME;
+      } else {
+        process.env.XDG_DATA_HOME = previousXdgDataHome;
+      }
+    }
+  });
+
+  it('cleans up the worktree and created branch when reset fails after add', async () => {
+    if (!canRunGit()) return;
+
+    const previousXdgDataHome = process.env.XDG_DATA_HOME;
+    const dataHome = createTempDir();
+    process.env.XDG_DATA_HOME = dataHome;
+
+    try {
+      const repo = createTempDir();
+      runGit(repo, ['init', '-b', 'main']);
+      runGit(repo, ['config', 'user.email', 'test@example.com']);
+      runGit(repo, ['config', 'user.name', 'Test User']);
+      fs.writeFileSync(path.join(repo, 'blocked.blocked'), 'blocked\n');
+      runGit(repo, ['add', 'blocked.blocked']);
+      runGit(repo, ['commit', '-m', 'Add blocked file']);
+      const projectID = runGit(repo, ['rev-list', '--max-parents=0', '--all']).trim();
+
+      fs.writeFileSync(path.join(repo, '.gitattributes'), '*.blocked filter=openchamber-fail\n');
+      runGit(repo, ['add', '.gitattributes']);
+      runGit(repo, ['commit', '-m', 'Enable failing checkout filter']);
+      runGit(repo, ['config', 'filter.openchamber-fail.required', 'true']);
+      runGit(repo, ['config', 'filter.openchamber-fail.smudge', 'git openchamber-smudge-fail']);
+
+      await expect(createWorktree(repo, {
+        mode: 'new',
+        branchName: 'feature/reset-fail',
+        worktreeName: 'reset-fail',
+      })).rejects.toThrow();
+
+      const candidateDirectory = path.join(dataHome, 'opencode', 'worktree', projectID, 'reset-fail');
+      expect(fs.existsSync(candidateDirectory)).toBe(false);
+
+      const branchExists = (() => {
+        try {
+          runGit(repo, ['show-ref', '--verify', '--quiet', 'refs/heads/feature/reset-fail']);
+          return true;
+        } catch {
+          return false;
+        }
+      })();
+      expect(branchExists).toBe(false);
     } finally {
       if (previousXdgDataHome === undefined) {
         delete process.env.XDG_DATA_HOME;

@@ -182,7 +182,7 @@ describe('useMultiRunStore', () => {
     expect(childState.session.map((session) => session.id)).toEqual(['ses_multirun']);
   });
 
-  test('uses fast background worktree creation for isolated runs', async () => {
+  test('waits for git worktree attachment before creating isolated run sessions', async () => {
     isGitRepository = true;
 
     const result = await useMultiRunStore.getState().createMultiRun({
@@ -197,7 +197,7 @@ describe('useMultiRunStore', () => {
     expect(result?.sessionIds).toEqual(['ses_multirun']);
     expect(worktreeCreateCalls.length).toBe(1);
     expect(worktreeCreateCalls[0]?.project).toEqual({ id: 'project-1', path: '/repo' });
-    expect(worktreeCreateCalls[0]?.args.returnAfterDirectoryCreated).toBe(true);
+    expect(worktreeCreateCalls[0]?.args.returnAfterDirectoryCreated).toBe(false);
     expect(worktreeCreateCalls[0]?.options).toEqual({ resolvedRootTrackingRemote: null });
     expect(worktreeBootstrapWaitCalls).toEqual([]);
     expect(operationOrder).toEqual(['createSession:/repo-worktrees/fix-thing']);

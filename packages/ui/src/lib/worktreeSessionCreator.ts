@@ -306,7 +306,6 @@ export async function createWorktreeSessionForNewBranch(
     ensureRemoteName?: string;
     ensureRemoteUrl?: string;
     createdFromBranch?: string;
-    returnAfterDirectoryCreated?: boolean;
   }
 ): Promise<{ id: string; branch: string; path: string } | null> {
   if (isCreatingWorktreeSession) {
@@ -358,7 +357,7 @@ export async function createWorktreeSessionForNewBranch(
         ensureRemoteName: options?.ensureRemoteName,
         ensureRemoteUrl: options?.ensureRemoteUrl,
         setupCommands,
-        returnAfterDirectoryCreated: options?.returnAfterDirectoryCreated,
+        returnAfterDirectoryCreated: false,
       });
       const createdMetadata = {
         ...metadata,

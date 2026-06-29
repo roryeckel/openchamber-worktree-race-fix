@@ -358,6 +358,7 @@ export interface GitWorktreeValidationResult {
 
 export interface GitWorktreeBootstrapStatus {
   status: 'pending' | 'ready' | 'failed';
+  phase?: 'attaching' | 'populating' | 'setup' | 'ready';
   error: string | null;
   updatedAt: number;
 }

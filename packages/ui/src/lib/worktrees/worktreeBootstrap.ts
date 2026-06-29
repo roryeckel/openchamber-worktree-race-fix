@@ -15,6 +15,7 @@ const normalizePath = (value: string): string => value.replace(/\\/g, '/').repla
 
 const state = new Map<string, WorktreeBootstrapState>();
 const waiters = new Map<string, Promise<void>>();
+const filesystemWaiters = new Map<string, Promise<void>>();
 const watchers = new Map<string, { cancelled: boolean; promise: Promise<void> }>();
 
 const getKey = (directory: string): string => normalizePath(directory);
@@ -54,6 +55,7 @@ export const clearWorktreeBootstrapState = (directory: string): void => {
   }
   state.delete(key);
   waiters.delete(key);
+  filesystemWaiters.delete(key);
 };
 
 export const setWorktreeBootstrapState = (directory: string, next: WorktreeBootstrapState): void => {
@@ -64,6 +66,7 @@ export const setWorktreeBootstrapState = (directory: string, next: WorktreeBoots
   state.set(key, next);
   if (next.status !== 'pending') {
     waiters.delete(key);
+    filesystemWaiters.delete(key);
   }
 };
 
@@ -97,6 +100,10 @@ const markBootstrapFailed = (
   return failed;
 };
 
+const isWorktreeFilesystemReady = (status: GitWorktreeBootstrapStatus): boolean => {
+  return status.status === 'ready' || (status.status === 'pending' && status.phase === 'setup');
+};
+
 const pollWorktreeBootstrapUntilSettled = async (directory: string, timeoutMs: number): Promise<void> => {
   const startedAt = Date.now();
 
@@ -117,6 +124,28 @@ const pollWorktreeBootstrapUntilSettled = async (directory: string, timeoutMs: n
 
   const failed = markBootstrapFailed(directory, t('worktree.bootstrap.toast.timeoutDescription'));
   throw new Error(failed.error || 'Timed out waiting for worktree bootstrap');
+};
+
+const pollWorktreeFilesystemUntilReady = async (directory: string, timeoutMs: number): Promise<void> => {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const result = await getGitWorktreeBootstrapStatus(directory);
+    setWorktreeBootstrapState(directory, result);
+
+    if (isWorktreeFilesystemReady(result)) {
+      return;
+    }
+
+    if (result.status === 'failed') {
+      throw new Error(result.error || 'Worktree bootstrap failed');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+
+  const failed = markBootstrapFailed(directory, t('worktree.bootstrap.toast.timeoutDescription'));
+  throw new Error(failed.error || 'Timed out waiting for worktree files');
 };
 
 const pollWorktreeBootstrapInBackground = async (
@@ -218,6 +247,7 @@ export const waitForWorktreeBootstrap = async (directory: string, timeoutMs = DE
   }
 
   const current = state.get(key);
+
   if (!current) {
     return;
   }
@@ -238,5 +268,32 @@ export const waitForWorktreeBootstrap = async (directory: string, timeoutMs = DE
     waiters.delete(key);
   });
   waiters.set(key, pending);
+  return pending;
+};
+
+export const waitForWorktreeFilesystemReady = async (directory: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> => {
+  const key = getKey(directory);
+  if (!key) {
+    return;
+  }
+
+  const current = state.get(key);
+
+  if (current && isWorktreeFilesystemReady(current)) {
+    return;
+  }
+  if (current?.status === 'failed') {
+    throw new Error(current.error || 'Worktree bootstrap failed');
+  }
+
+  const existing = filesystemWaiters.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const pending = pollWorktreeFilesystemUntilReady(directory, timeoutMs).finally(() => {
+    filesystemWaiters.delete(key);
+  });
+  filesystemWaiters.set(key, pending);
   return pending;
 };

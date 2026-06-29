@@ -831,7 +831,7 @@ export function NewWorktreeDialog({
             setUpstream: prConfig.setUpstream,
             upstreamRemote: prConfig.upstreamRemote,
             upstreamBranch: prConfig.upstreamBranch,
-            returnAfterDirectoryCreated: true,
+            returnAfterDirectoryCreated: !shouldCreateSession,
             ...(prConfig.ensureRemoteName ? { ensureRemoteName: prConfig.ensureRemoteName } : {}),
             ...(prConfig.ensureRemoteUrl ? { ensureRemoteUrl: prConfig.ensureRemoteUrl } : {}),
           };
@@ -845,7 +845,7 @@ export function NewWorktreeDialog({
           worktreeName: normalizedWorktree,
           existingBranch: mode === 'existing-branch' ? normalizedBranch : undefined,
           setupCommands,
-          returnAfterDirectoryCreated: true,
+          returnAfterDirectoryCreated: !shouldCreateSession,
           ...(sourceBranch && mode === 'new-branch' ? { startRef: sourceBranch } : {}),
         };
       })();

@@ -30,7 +30,7 @@ import { markPendingUserSendAnimation } from "@/lib/userSendAnimation"
 import { flattenAssistantTextParts } from "@/lib/messages/messageText"
 import { composeForkSessionMessage } from "@/lib/messages/executionMeta"
 import { waitForPendingDraftWorktreeRequest } from "@/lib/worktrees/pendingDraftWorktree"
-import { waitForWorktreeBootstrap } from "@/lib/worktrees/worktreeBootstrap"
+import { waitForWorktreeBootstrap, waitForWorktreeFilesystemReady } from "@/lib/worktrees/worktreeBootstrap"
 import { getWorktreeSetupWaitEnabled } from "@/lib/openchamberConfig"
 import { resolveProjectForSessionDirectory } from "@/lib/projectResolution"
 import {
@@ -453,12 +453,16 @@ export async function materializeOpenDraftSession(selection: {
     : undefined
   let draftDirectoryOverride = draft.bootstrapPendingDirectory ?? draft.directoryOverride ?? null
   const draftProjectId = draft.selectedProjectId ?? null
+  const shouldWaitForWorktreeFiles = Boolean(draft.bootstrapPendingDirectory || draft.pendingWorktreeRequestId)
 
   if (draft.pendingWorktreeRequestId) {
     draftDirectoryOverride = await waitForPendingDraftWorktreeRequest(draft.pendingWorktreeRequestId)
     store.resolvePendingDraftWorktreeTarget(draft.pendingWorktreeRequestId, draftDirectoryOverride)
   }
 
+  if (shouldWaitForWorktreeFiles && draftDirectoryOverride) {
+    await waitForWorktreeFilesystemReady(draftDirectoryOverride)
+  }
   await waitForWorktreeBootstrapIfConfigured(draftDirectoryOverride, draftProjectId)
 
   const created = await store.createSession(draft.title, draftDirectoryOverride, draft.parentID ?? null)
@@ -1390,7 +1394,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
         branchName,
         worktreeName: branchName,
         setupCommands,
-        returnAfterDirectoryCreated: true,
+        returnAfterDirectoryCreated: false,
       })
       sessionDirectory = normalizePath(createdWorktree.path)
       if (!sessionDirectory) {
